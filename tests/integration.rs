@@ -4,7 +4,7 @@
 //! focusing on multi-step scenarios, edge cases, and realistic probe cycles.
 
 use gossip_ping::{
-    AckMessage, PingConfig, PingMessage, PingResult, Pinger, ProbeOutcome, RttStats,
+    AckMessage, PingConfig, PingResult, Pinger, ProbeOutcome,
 };
 use std::time::{Duration, Instant};
 

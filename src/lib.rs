@@ -13,6 +13,17 @@ pub type NodeId = String;
 pub type SeqNum = u64;
 
 /// The result of a ping attempt.
+///
+/// # Example
+///
+/// ```
+/// use gossip_ping::PingResult;
+/// use std::time::Duration;
+///
+/// let alive = PingResult::Alive(Duration::from_millis(42));
+/// assert!(alive.is_alive());
+/// assert!(!alive.is_timeout());
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum PingResult {
     /// The node responded. The duration is the round-trip time.
@@ -88,6 +99,20 @@ impl AckMessage {
 }
 
 /// Configuration for the pinger. Defaults are based on the SWIM paper.
+///
+/// # Example
+///
+/// ```
+/// use gossip_ping::PingConfig;
+/// use std::time::Duration;
+///
+/// let config = PingConfig::new()
+///     .timeout_ms(750)
+///     .indirect_relay_count(5)
+///     .probe_interval_ms(2000);
+///
+/// assert_eq!(config.timeout_initial, Duration::from_millis(750));
+/// ```
 #[derive(Debug, Clone)]
 pub struct PingConfig {
     /// Initial ping timeout before any RTT history exists.
@@ -145,6 +170,18 @@ impl PingConfig {
 }
 
 /// The pinger state: identity, config, sequence counter, and RTT history.
+///
+/// # Example
+///
+/// ```
+/// use gossip_ping::{Pinger, PingConfig};
+///
+/// let mut pinger = Pinger::new("node-A", PingConfig::default());
+/// let seq0 = pinger.next_seq();
+/// let seq1 = pinger.next_seq();
+/// assert_eq!(seq0, 0);
+/// assert_eq!(seq1, 1);
+/// ```
 #[derive(Debug)]
 pub struct Pinger {
     self_id: NodeId,
