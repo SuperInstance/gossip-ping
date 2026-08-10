@@ -1,6 +1,10 @@
-# Gossip Ping
+# Gossip Ping — Agents Whispering Across Networks
 
-A **failure detection component** implementing the ping/ack mechanism for SWIM-style gossip protocols — sending direct heartbeats to peers, measuring round-trip latency, and triggering suspicion when nodes become unresponsive.
+> *Gossip IS stigmergy at network speed. The probe cycle is a pheromone sweep. The suspicion mechanism is an evaporating trail.*
+
+A **failure detection component** implementing the ping/ack mechanism for SWIM-style gossip protocols — sending direct heartbeats to peers, measuring round-trip latency, and triggering suspicion when nodes become unresponsive. This is the liveness probe layer of the fleet's mesh communication stack.
+
+Where [CNS Bridge](https://github.com/SuperInstance/cns-bridge) carries messages through filesystem inboxes and [stigmergy](https://github.com/SuperInstance/stigmergy) leaves pheromone trails in shared environments, Gossip Ping is the **nervous system's proprioception** — the constant, low-level sense of *who is still here*. Every agent pings every other agent. The silence of a missed response is information. The suspicion that follows is a signal to the fleet.
 
 ## Why It Matters
 
@@ -71,6 +75,28 @@ match result {
 ## Architecture Notes
 
 Gossip Ping is the liveness probe layer in the SuperInstance gossip stack. It feeds results into gossip-suspicion (state transitions) and gossip-member (membership updates). The configurable timeout maps to **γ** (coordination overhead) in **γ + η = C** — tighter timeouts increase false positives (higher γ from unnecessary suspicion); looser timeouts increase detection latency (higher γ from stale membership). See [Architecture](https://github.com/SuperInstance/SuperInstance/blob/main/ARCHITECTURE.md).
+
+## Fleet Topology
+
+Gossip Ping connects to:
+
+- **[CNS Bridge](https://github.com/SuperInstance/cns-bridge)** — The bus carries messages; gossip ping carries presence. Together: message + liveness.
+- **[stigmergy](https://github.com/SuperInstance/stigmergy)** — Gossip IS stigmergy at network speed. The probe cycle is a pheromone sweep.
+- **[fleet-envelope](https://github.com/SuperInstance/fleet-envelope)** — Ping results wrapped as fleet events for consumption by other systems.
+- **[emergence-engine](https://github.com/SuperInstance/emergence-engine)** — Node liveness data feeds emergence detection (a node going dark is a phase transition).
+- **[the-living-minds](https://github.com/SuperInstance/the-living-minds)** — The daemon's warmup pings are a simplified version of this gossip protocol.
+- **[confidence-cascade](https://github.com/SuperInstance/confidence-cascade)** — Liveness confidence cascades through the fleet.
+
+---
+
+## Where to Next
+
+- → **[CNS Bridge](https://github.com/SuperInstance/cns-bridge)** — The bus that carries the messages gossip verifies
+- → **[stigmergy](https://github.com/SuperInstance/stigmergy)** — Pheromone trails at rest; gossip is pheromone trails in motion
+- → **[fleet-envelope](https://github.com/SuperInstance/fleet-envelope)** — The grammar that wraps every ping result
+- → **[emergence-engine](https://github.com/SuperInstance/emergence-engine)** — What happens when a node goes dark
+
+---
 
 ## References
 
