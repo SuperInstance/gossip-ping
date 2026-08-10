@@ -330,6 +330,86 @@ impl Pinger {
         last
     }
 
+    /// Execute a full SWIM probe cycle: direct ping, and if that fails,
+    /// indirect ping through relay nodes before marking suspect.
+    ///
+    /// This is the recommended entry point for SWIM-style failure detection.
+    /// `ping_fn` performs the direct ping; `relay_fn` performs an indirect
+    /// ping via a relay node. Relays are selected from `members` excluding
+    /// the caller and the target.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gossip_ping::{Pinger, PingConfig, PingResult};
+    ///
+    /// let mut pinger = Pinger::new("A", PingConfig::default());
+    /// let members = vec!["A".into(), "B".into(), "C".into(), "D".into()];
+    ///
+    /// let outcome = pinger.full_probe_cycle(
+    ///     &members,
+    ///     1, // index into members (probe "B")
+    ///     |target| PingResult::Alive(std::time::Duration::from_millis(10)),
+    ///     |relay, target| PingResult::Alive(std::time::Duration::from_millis(20)),
+    /// ).unwrap();
+    ///
+    /// assert!(!outcome.suspect);
+    /// ```
+    ///
+    /// Returns `None` if members is empty. Otherwise returns a `ProbeOutcome`
+    /// with `indirect` set if an indirect ping was attempted.
+    pub fn full_probe_cycle<F, G>(
+        &mut self,
+        members: &[NodeId],
+        index: usize,
+        mut ping_fn: F,
+        mut relay_fn: G,
+    ) -> Option<ProbeOutcome>
+    where
+        F: FnMut(&NodeId) -> PingResult,
+        G: FnMut(&NodeId, &NodeId) -> PingResult,
+    {
+        if members.is_empty() {
+            return None;
+        }
+
+        let target = &members[index % members.len()];
+
+        // Direct ping
+        let direct = ping_fn(target);
+
+        if direct.is_alive() {
+            return Some(ProbeOutcome {
+                target: target.clone(),
+                direct,
+                indirect: None,
+                suspect: false,
+            });
+        }
+
+        // Direct failed — try indirect through available relays
+        let relays: Vec<NodeId> = members
+            .iter()
+            .filter(|m| *m != target && *m != &self.self_id)
+            .cloned()
+            .collect();
+
+        let indirect = if relays.is_empty() {
+            None
+        } else {
+            Some(self.indirect_ping(target, &relays, &mut relay_fn))
+        };
+
+        let suspect = !indirect.as_ref().map_or(false, |r| r.is_alive());
+
+        Some(ProbeOutcome {
+            target: target.clone(),
+            direct,
+            indirect,
+            suspect,
+        })
+    }
+
     /// Clear RTT history (e.g., after a network change).
     pub fn reset_rtt_history(&mut self) {
         self.rtt_history.clear();
@@ -609,5 +689,123 @@ mod tests {
         assert!(!PingResult::Timeout.is_alive());
         assert!(PingResult::Timeout.is_timeout());
         assert!(!PingResult::Alive(Duration::ZERO).is_timeout());
+    }
+
+    // -----------------------------------------------------------------------
+    // full_probe_cycle: integrated direct + indirect SWIM probe
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn full_probe_cycle_direct_success_no_indirect() {
+        let mut p = Pinger::new("A", PingConfig::default());
+        let members = vec!["A".into(), "B".into(), "C".into()];
+        let outcome = p
+            .full_probe_cycle(
+                &members,
+                1, // probe B
+                |_| PingResult::Alive(Duration::from_millis(10)),
+                |_, _| panic!("indirect should not be called"),
+            )
+            .unwrap();
+        assert!(!outcome.suspect);
+        assert!(outcome.direct.is_alive());
+        assert!(outcome.indirect.is_none());
+    }
+
+    #[test]
+    fn full_probe_cycle_indirect_recovery_not_suspect() {
+        let mut p = Pinger::new("A", PingConfig::default());
+        let members = vec!["A".into(), "B".into(), "C".into(), "D".into()];
+        // Direct ping to B fails, but indirect via C succeeds
+        let outcome = p
+            .full_probe_cycle(
+                &members,
+                1, // probe B
+                |target| {
+                    if target == "B" {
+                        PingResult::Timeout
+                    } else {
+                        PingResult::Alive(Duration::from_millis(10))
+                    }
+                },
+                |relay, target| {
+                    assert_eq!(target, "B");
+                    if relay == "C" {
+                        PingResult::Alive(Duration::from_millis(50))
+                    } else {
+                        PingResult::Timeout
+                    }
+                },
+            )
+            .unwrap();
+        assert!(outcome.direct.is_timeout());
+        assert!(outcome.indirect.as_ref().unwrap().is_alive());
+        assert!(!outcome.suspect); // recovered via indirect
+    }
+
+    #[test]
+    fn full_probe_cycle_all_fail_marks_suspect() {
+        let mut p = Pinger::new("A", PingConfig::default());
+        let members = vec!["A".into(), "B".into(), "C".into(), "D".into()];
+        let outcome = p
+            .full_probe_cycle(
+                &members,
+                1, // probe B
+                |_| PingResult::Timeout,
+                |_, _| PingResult::Timeout,
+            )
+            .unwrap();
+        assert!(outcome.direct.is_timeout());
+        assert!(outcome.indirect.as_ref().unwrap().is_timeout());
+        assert!(outcome.suspect);
+    }
+
+    #[test]
+    fn full_probe_cycle_excludes_self_and_target_from_relays() {
+        let mut p = Pinger::new("A", PingConfig::default());
+        let members = vec!["A".into(), "B".into(), "C".into(), "D".into()];
+        let mut relays_used = Vec::new();
+        let _outcome = p
+            .full_probe_cycle(
+                &members,
+                1, // probe B
+                |_| PingResult::Timeout,
+                |relay, _target| {
+                    relays_used.push(relay.clone());
+                    PingResult::Timeout
+                },
+            )
+            .unwrap();
+        // Should try C and D, never A (self) or B (target)
+        assert!(relays_used.contains(&"C".to_string()));
+        assert!(relays_used.contains(&"D".to_string()));
+        assert!(!relays_used.contains(&"A".to_string()));
+        assert!(!relays_used.contains(&"B".to_string()));
+    }
+
+    #[test]
+    fn full_probe_cycle_empty_members_returns_none() {
+        let mut p = Pinger::new("A", PingConfig::default());
+        assert!(p
+            .full_probe_cycle(&[], 0, |_| PingResult::Timeout, |_, _| PingResult::Timeout)
+            .is_none());
+    }
+
+    #[test]
+    fn full_probe_cycle_no_relays_available() {
+        let mut p = Pinger::new("A", PingConfig::default());
+        // Only A and B in members — no possible relays
+        let members = vec!["A".into(), "B".into()];
+        let outcome = p
+            .full_probe_cycle(
+                &members,
+                1, // probe B
+                |_| PingResult::Timeout,
+                |_, _| panic!("no relays should be attempted"),
+            )
+            .unwrap();
+        assert!(outcome.direct.is_timeout());
+        assert!(outcome.indirect.is_none());
+        assert!(outcome.suspect);
     }
 }
