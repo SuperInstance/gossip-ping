@@ -337,3 +337,54 @@ fn handle_ack_measures_actual_elapsed_time() {
         panic!("expected Alive");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Serde serialization (only when feature is enabled)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+mod serde_tests {
+    use gossip_ping::{AckMessage, PingMessage, PingResult};
+    use serde_json;
+    use std::time::Duration;
+
+    #[test]
+    fn ping_message_serializes_roundtrip() {
+        let msg = PingMessage::new("node-A", "node-B", 42);
+        let json = serde_json::to_string(&msg).unwrap();
+        let deserialized: PingMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(msg, deserialized);
+    }
+
+    #[test]
+    fn ack_message_serializes_roundtrip() {
+        let ack = AckMessage::alive("node-B", 7);
+        let json = serde_json::to_string(&ack).unwrap();
+        assert!(json.contains("\"alive\":true"));
+        let deserialized: AckMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(ack, deserialized);
+    }
+
+    #[test]
+    fn ping_result_alive_serializes_with_rtt() {
+        let result = PingResult::Alive(Duration::from_millis(42));
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("Alive"));
+        let back: PingResult = serde_json::from_str(&json).unwrap();
+        assert!(back.is_alive());
+    }
+
+    #[test]
+    fn ping_result_timeout_serializes() {
+        let result = PingResult::Timeout;
+        let json = serde_json::to_string(&result).unwrap();
+        assert_eq!(json, "\"Timeout\"");
+    }
+
+    #[test]
+    fn ping_result_error_serializes_with_message() {
+        let result = PingResult::Error("network unreachable".into());
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("network unreachable"));
+    }
+}

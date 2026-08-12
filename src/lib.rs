@@ -3,6 +3,9 @@
 //!
 //! See README.md for the full protocol description.
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -25,6 +28,7 @@ pub type SeqNum = u64;
 /// assert!(!alive.is_timeout());
 /// ```
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum PingResult {
     /// The node responded. The duration is the round-trip time.
     Alive(Duration),
@@ -46,6 +50,7 @@ impl PingResult {
 
 /// What happened in a full probe cycle (direct + optional indirect).
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProbeOutcome {
     pub target: NodeId,
     pub direct: PingResult,
@@ -56,6 +61,7 @@ pub struct ProbeOutcome {
 
 /// Wire format for a ping message.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PingMessage {
     pub sender: NodeId,
     pub target: NodeId,
@@ -64,6 +70,7 @@ pub struct PingMessage {
 
 /// Wire format for an ack message.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AckMessage {
     pub from: NodeId,
     pub seq: SeqNum,
@@ -114,6 +121,7 @@ impl AckMessage {
 /// assert_eq!(config.timeout_initial, Duration::from_millis(750));
 /// ```
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PingConfig {
     /// Initial ping timeout before any RTT history exists.
     pub timeout_initial: Duration,
@@ -443,6 +451,7 @@ impl Pinger {
 
 /// Aggregated RTT statistics.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RttStats {
     pub min: Duration,
     pub max: Duration,

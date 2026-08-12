@@ -1,9 +1,21 @@
 [package]
 name = "gossip-ping"
-version = "0.1.0"
-description = "A Rust library for Gossip Ping"
+version = "0.2.0"
+description = "SWIM-style failure detection with direct ping, indirect ping-req fallback, and adaptive timeout"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/casey-digennaro/gossip-ping"
 edition = "2021"
 
+[features]
+default = []
+serde = ["dep:serde"]
+
 [dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde_json = "1"
+
+[[example]]
+name = "fleet_probe"
+path = "examples/fleet_probe.rs"
