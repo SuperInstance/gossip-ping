@@ -2,6 +2,10 @@
 
 > *Gossip IS stigmergy at network speed. The probe cycle is a pheromone sweep. The suspicion mechanism is an evaporating trail.*
 
+<p align="center">
+  <img src="assets/images/hero.jpg" width="680" alt="One answered signal glowing amber at the desk; the unanswered one dissolving into navy silence — the felt shape of a liveness probe">
+</p>
+
 A **failure detection component** implementing the ping/ack mechanism for SWIM-style gossip protocols — sending direct heartbeats to peers, measuring round-trip latency, and triggering suspicion when nodes become unresponsive. This is the liveness probe layer of the fleet's mesh communication stack.
 
 Where [CNS Bridge](https://github.com/SuperInstance/cns-bridge) carries messages through filesystem inboxes and [stigmergy](https://github.com/SuperInstance/stigmergy) leaves pheromone trails in shared environments, Gossip Ping is the **nervous system's proprioception** — the constant, low-level sense of *who is still here*. Every agent pings every other agent. The silence of a missed response is information. The suspicion that follows is a signal to the fleet.
