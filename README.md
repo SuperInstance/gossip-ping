@@ -88,7 +88,7 @@ Gossip Ping connects to:
 - **[stigmergy](https://github.com/SuperInstance/stigmergy)** — Gossip IS stigmergy at network speed. The probe cycle is a pheromone sweep.
 - **[fleet-envelope](https://github.com/SuperInstance/fleet-envelope)** — Ping results wrapped as fleet events for consumption by other systems.
 - **[emergence-engine](https://github.com/SuperInstance/emergence-engine)** — Node liveness data feeds emergence detection (a node going dark is a phase transition).
-- **[the-living-minds](https://github.com/SuperInstance/the-living-minds)** — The daemon's warmup pings are a simplified version of this gossip protocol.
+- **[the-living-minds](https://github.com/SuperInstance/the-living-minds) (dead)** — The daemon's warmup pings are a simplified version of this gossip protocol.
 - **[confidence-cascade](https://github.com/SuperInstance/confidence-cascade)** — Liveness confidence cascades through the fleet.
 
 ---
